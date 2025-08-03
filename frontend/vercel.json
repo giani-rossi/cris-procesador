@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
+  ],
+  "env": {
+    "AIRTABLE_API_KEY": "patkWzbMni1wMv2YM.af1472b6ff881c529a09c16005b6f69ad34d0daf21eabb60e69559966ebd9ad3"
+  }
+} 
