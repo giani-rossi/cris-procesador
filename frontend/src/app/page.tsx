@@ -3,8 +3,18 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
+interface AirtableRecord {
+  id: string;
+  fields: {
+    Documento?: string;
+    CSV?: string;
+    Estado_Procesamiento?: string;
+    [key: string]: unknown;
+  };
+}
+
 interface ApiResponse {
-  records: any[];
+  records: AirtableRecord[];
   total_records: number;
   total_chars: number;
   total_lines: number;

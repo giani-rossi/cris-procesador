@@ -70,9 +70,15 @@ export default function ClientesPage() {
       const result = await response.json();
       
       if (result.success) {
-        alert('✅ Script ejecutado exitosamente. Los datos se han actualizado.');
-        // Recargar los datos después del procesamiento
-        await fetchData();
+        if (result.deployed) {
+          // En Vercel - mostrar instrucciones
+          alert(`✅ ${result.message}\n\n📝 ${result.note}\n\n${result.instructions.join('\n')}`);
+        } else {
+          // Local - mostrar éxito
+          alert('✅ Script ejecutado exitosamente. Los datos se han actualizado.');
+          // Recargar los datos después del procesamiento
+          await fetchData();
+        }
       } else {
         alert(`❌ Error: ${result.error}\n\nDetalles: ${result.details}`);
       }
