@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 interface ScriptResponse {
   success: boolean;
@@ -9,7 +9,7 @@ interface ScriptResponse {
   details?: string;
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse<ScriptResponse>> {
+export async function POST(): Promise<NextResponse<ScriptResponse>> {
   try {
     console.log('🚀 Iniciando ejecución de script desde Vercel...');
 
