@@ -74,7 +74,7 @@ export default function ClientesPage() {
       if (result.success) {
         if (result.deployed) {
           // En Vercel - mostrar instrucciones
-          alert(`✅ ${result.message}\n\n📝 ${result.note}\n\n${result.instructions.join('\n')}`);
+          alert(`✅ ${result.message}\n\n📝 ${result.note}\n\nPara procesar PDFs localmente:\n1. Abre una terminal\n2. Navega al directorio del proyecto\n3. Ejecuta: python3 airtable_pdf_extractor.py`);
         } else {
           // Local - mostrar éxito
           alert('✅ Script ejecutado exitosamente. Los datos se han actualizado.');
