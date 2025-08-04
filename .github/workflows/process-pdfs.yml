@@ -1,8 +1,9 @@
 name: Process PDFs from Airtable
 
 on:
-  repository_dispatch:
-    types: [process_pdfs_trigger]
+  # repository_dispatch:
+  #   types: [process_pdfs_trigger]
+  workflow_dispatch: # Solo manual por ahora
 
 jobs:
   process-pdfs:
