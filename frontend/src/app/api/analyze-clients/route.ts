@@ -6,6 +6,7 @@ interface AirtableRecord {
     Documento?: string;
     CSV?: string;
     Estado_Procesamiento?: string;
+    Estado_Cliente?: string;
     [key: string]: unknown;
   };
 }
@@ -66,7 +67,7 @@ function extractClientInfo(csvContent: string, filename: string): ClientData[] {
           documentos: 1,
           fechaUltima: values[0]?.replace(/"/g, '').trim() || 'Sin fecha',
           documentosInfo: [filename],
-          estado: 'Procesado' // Asumiendo un estado por defecto
+          estado: 'Pendiente' // Estado por defecto
         });
       }
     }
@@ -79,6 +80,29 @@ function extractClientInfo(csvContent: string, filename: string): ClientData[] {
 
 function analyzeClientData(records: AirtableRecord[]): ApiResponse {
   const clientesMap = new Map<string, ClientData>();
+  
+  // Crear un mapa de estados por nombre de cliente
+  const estadosMap = new Map<string, string>();
+  records.forEach((record: AirtableRecord) => {
+    const csvContent = record.fields.CSV;
+    if (csvContent && typeof csvContent === 'string') {
+      const lines = csvContent.split('\n');
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+        
+        const values = line.split(',');
+        if (values.length >= 7) {
+          const clienteNombre = values[6]?.replace(/"/g, '').trim();
+          if (clienteNombre) {
+            // Usar el estado del registro si existe, o 'Pendiente' por defecto
+            const estado = record.fields.Estado_Cliente || 'Pendiente';
+            estadosMap.set(clienteNombre, estado);
+          }
+        }
+      }
+    }
+  });
   
   records.forEach((record: AirtableRecord) => {
     const csvContent = record.fields.CSV;
@@ -109,9 +133,11 @@ function analyzeClientData(records: AirtableRecord[]): ApiResponse {
           existing.localidad = existing.localidad + ', ' + client.localidad;
         }
       } else {
+        // Usar el estado guardado en Airtable o 'Pendiente' por defecto
+        const estadoGuardado = estadosMap.get(clienteKey) || 'Pendiente';
         clientesMap.set(clienteKey, { 
           ...client,
-          estado: client.estado || 'Pendiente' // Asegurar que el estado tenga un valor por defecto
+          estado: estadoGuardado
         });
       }
     });

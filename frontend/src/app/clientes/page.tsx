@@ -11,6 +11,7 @@ interface ClientData {
   viajes: number;
   documentos: number;
   fechaUltima: string;
+  estado: string;
   documentosInfo?: string[]; // Agregar información de documentos
 }
 
@@ -49,12 +50,25 @@ export default function ClientesPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      
+      // Cargar datos de clientes
       const response = await fetch('/api/analyze-clients');
       if (!response.ok) {
         throw new Error('Error al obtener datos');
       }
       const result = await response.json();
       setData(result);
+      
+      // Cargar estados de clientes desde la nueva tabla
+      try {
+        const statesResponse = await fetch('/api/client-states');
+        const statesData = await statesResponse.json();
+        if (statesData.success) {
+          setClientStates(statesData.clientStates);
+        }
+      } catch (error) {
+        console.error('Error cargando estados de clientes:', error);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
@@ -113,8 +127,8 @@ export default function ClientesPage() {
         [clientName]: newState
       }));
 
-      // Guardar en Airtable
-      const response = await fetch('/api/update-client-state', {
+      // Guardar en Airtable usando la nueva tabla
+      const response = await fetch('/api/client-states', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -516,7 +530,7 @@ export default function ClientesPage() {
                     </td>
                     <td className="px-3 py-3 text-sm text-gray-900">
                       <select
-                        value={clientStates[cliente.nombre] || 'Pendiente'}
+                        value={clientStates[cliente.nombre] || cliente.estado || 'Pendiente'}
                         onChange={(e) => handleStateChange(cliente.nombre, e.target.value)}
                         className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
