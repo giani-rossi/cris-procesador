@@ -89,7 +89,8 @@ function analyzeClientData(records: AirtableRecord[]): ApiResponse {
     const clients = extractClientInfo(csvContent, filename);
     
     clients.forEach(client => {
-      const clienteKey = `${client.nombre}-${client.localidad}`;
+      // Agrupar solo por nombre de cliente, sin importar localidad
+      const clienteKey = client.nombre;
       const existing = clientesMap.get(clienteKey);
       
       if (existing) {
@@ -102,6 +103,10 @@ function analyzeClientData(records: AirtableRecord[]): ApiResponse {
         // Actualizar fecha si es más reciente
         if (client.fechaUltima && existing.fechaUltima && client.fechaUltima > existing.fechaUltima) {
           existing.fechaUltima = client.fechaUltima;
+        }
+        // Combinar localidades únicas
+        if (client.localidad && !existing.localidad.includes(client.localidad)) {
+          existing.localidad = existing.localidad + ', ' + client.localidad;
         }
       } else {
         clientesMap.set(clienteKey, { 
