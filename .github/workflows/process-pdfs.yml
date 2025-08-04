@@ -1,47 +1,60 @@
 name: Process PDFs from Airtable
 
 on:
-  workflow_dispatch: # Trigger manual desde GitHub
-  schedule:
-    - cron: '0 */6 * * *' # Cada 6 horas automáticamente
-  push:
-    paths:
-      - 'airtable_pdf_extractor.py' # Cuando se actualice el script
   repository_dispatch:
-    types: [process_pdfs_trigger] # Trigger desde Vercel
+    types: [process_pdfs_trigger]
 
 jobs:
   process-pdfs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
         
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyairtable requests PyPDF2 pdfplumber
+        
+    - name: Run PDF processing script
+      env:
+        AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+        AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+        AIRTABLE_TABLE_NAME: ${{ secrets.AIRTABLE_TABLE_NAME }}
+        AIRTABLE_CLIENT_STATES_TABLE_NAME: ${{ secrets.AIRTABLE_CLIENT_STATES_TABLE_NAME }}
+      run: |
+        echo "🚀 Starting PDF processing..."
+        python airtable_pdf_extractor.py
+        echo "✅ PDF processing completed!"
+        
+    - name: Create summary comment
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: commits } = await github.rest.repos.listCommits({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            per_page: 1
+          });
           
-      - name: Install dependencies
-        run: |
-          pip install pyairtable PyPDF2 pdfplumber requests
+          const commitSha = commits[0].sha;
           
-      - name: Run PDF processor
-        run: python airtable_pdf_extractor.py
-        env:
-          AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
-          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
-          AIRTABLE_TABLE_NAME: ${{ secrets.AIRTABLE_TABLE_NAME }}
-          
-      - name: Notify success
-        if: success()
-        run: |
-          echo "✅ PDFs procesados exitosamente"
-          echo "📊 Revisa Airtable para ver los resultados"
-          
-      - name: Notify failure
-        if: failure()
-        run: |
-          echo "❌ Error procesando PDFs"
-          echo "🔍 Revisa los logs para más detalles" 
+          await github.rest.repos.createCommitComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            commit_sha: commitSha,
+            body: `✅ **PDF Processing Complete**
+            
+            📊 **Workflow triggered by:** ${context.payload.client_payload?.source || 'Unknown'}
+            ⏰ **Triggered at:** ${context.payload.client_payload?.timestamp || new Date().toISOString()}
+            
+            The PDF processing script has been executed successfully. Check the logs above for details.
+            
+            🔗 **View in Airtable:** https://airtable.com/appwpptQ5YsSKUlKH/tblVsih979diW8VX4/viwgGXi3J2Ld8g8k9`
+          }); 
