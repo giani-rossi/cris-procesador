@@ -115,21 +115,26 @@ class ImprovedPDFExtractor:
                         # Extract data based on the pattern
                         groups = delivery_match.groups()
                         
+                        # Validate that we have enough groups
+                        if len(groups) < 11:
+                            print(f"⚠️ Línea {lines_processed}: No hay suficientes grupos en el patrón. Grupos encontrados: {len(groups)}")
+                            continue
+                        
                         record = {
-                            'fecha': groups[0],
-                            'transac_nr': groups[1],
-                            'remito': groups[2],
-                            'viaje_nr': groups[3],
-                            'chofer_code': groups[4],
-                            'chofer': groups[5].strip(),
-                            'localidad_entrega': groups[6].strip(),
+                            'fecha': groups[0] if len(groups) > 0 else '',
+                            'transac_nr': groups[1] if len(groups) > 1 else '',
+                            'remito': groups[2] if len(groups) > 2 else '',
+                            'viaje_nr': groups[3] if len(groups) > 3 else '',
+                            'chofer_code': groups[4] if len(groups) > 4 else '',
+                            'chofer': groups[5].strip() if len(groups) > 5 else '',
+                            'localidad_entrega': groups[6].strip() if len(groups) > 6 else '',
                             'cliente_codigo': current_client_code or '',
                             'cliente_nombre': current_client_name or '',
                             'codigo_destino': '',  # Not clearly visible in this format
-                            'bultos': groups[7],
-                            'cantidad': float(groups[8]),
-                            'peso_neto': float(groups[9]),
-                            'peso_bruto': float(groups[10])
+                            'bultos': groups[7] if len(groups) > 7 else '0',
+                            'cantidad': float(groups[8]) if len(groups) > 8 else 0.0,
+                            'peso_neto': float(groups[9]) if len(groups) > 9 else 0.0,
+                            'peso_bruto': float(groups[10]) if len(groups) > 10 else 0.0
                         }
                         
                         delivery_records.append(record)
