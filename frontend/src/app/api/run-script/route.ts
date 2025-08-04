@@ -96,10 +96,17 @@ async function processAirtablePDFs() {
   let errorCount = 0;
 
   for (const record of records) {
-    const pdfField = record.fields.Documento;
-    const statusField = record.fields.Estado_Procesamiento;
+    // Validar que el record tiene un ID
+    if (!record.id) {
+      console.log(`⚠️ Record without ID found`);
+      continue;
+    }
 
-    if (!pdfField || !pdfField.length) {
+    const pdfField = record.fields?.Documento;
+    const statusField = record.fields?.Estado_Procesamiento;
+
+    if (!pdfField || !Array.isArray(pdfField) || pdfField.length === 0) {
+      console.log(`⚠️ No PDF field found in record ${record.id}`);
       continue;
     }
 
@@ -110,6 +117,15 @@ async function processAirtablePDFs() {
     }
 
     try {
+      // Validar que el primer elemento existe y tiene las propiedades necesarias
+      const firstPdf = pdfField[0];
+      if (!firstPdf || typeof firstPdf !== 'object') {
+        console.log(`⚠️ Invalid PDF data in record ${record.id}`);
+        continue;
+      }
+
+      const filename = firstPdf.filename || 'unknown.pdf';
+      
       // En Vercel, marcamos como pendiente para procesamiento local
       // ya que no podemos procesar PDFs directamente en el entorno serverless
       await fetch(
@@ -130,7 +146,7 @@ async function processAirtablePDFs() {
       );
 
       processedCount++;
-      console.log(`✅ Marcado para procesamiento local: ${pdfField[0].filename || 'unknown.pdf'}`);
+      console.log(`✅ Marcado para procesamiento local: ${filename}`);
       
     } catch (error) {
       console.error(`Error processing record ${record.id}:`, error);
