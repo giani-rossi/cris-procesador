@@ -43,6 +43,8 @@ export default function ClientesPage() {
   const [error, setError] = useState<string | null>(null);
   const [processingScript, setProcessingScript] = useState(false);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [clientStates, setClientStates] = useState<{[key: string]: string}>({});
+  const [statusFilter, setStatusFilter] = useState<string>('Todos');
 
   const fetchData = async () => {
     try {
@@ -96,6 +98,19 @@ export default function ClientesPage() {
   const toggleSortOrder = () => {
     setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
   };
+
+  const handleStateChange = (clientName: string, newState: string) => {
+    setClientStates(prev => ({
+      ...prev,
+      [clientName]: newState
+    }));
+  };
+
+  const filteredClients = data?.clientesAnalizados.filter(client => {
+    if (statusFilter === 'Todos') return true;
+    const clientState = clientStates[client.nombre] || 'Pendiente';
+    return clientState === statusFilter;
+  }) || [];
 
   if (loading) {
     return (
@@ -361,6 +376,44 @@ export default function ClientesPage() {
           <div className="p-6 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Análisis por Segmento</h3>
             
+            {/* Filtro de Estado */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filtrar por Estado:
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="Todos">Todos los estados</option>
+                <option value="Pendiente">Pendiente</option>
+                <option value="Ya tiene vendedor">Ya tiene vendedor</option>
+                <option value="Ya tiene proveedor">Ya tiene proveedor</option>
+                <option value="En proceso">En proceso</option>
+                <option value="Cerrado">Cerrado</option>
+              </select>
+              
+              {/* Estadísticas por Estado */}
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                  Pendiente: {filteredClients.filter(c => (clientStates[c.nombre] || 'Pendiente') === 'Pendiente').length}
+                </span>
+                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                  Con Vendedor: {filteredClients.filter(c => clientStates[c.nombre] === 'Ya tiene vendedor').length}
+                </span>
+                <span className="px-2 py-1 bg-green-100 text-green-700 rounded">
+                  Con Proveedor: {filteredClients.filter(c => clientStates[c.nombre] === 'Ya tiene proveedor').length}
+                </span>
+                <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">
+                  En Proceso: {filteredClients.filter(c => clientStates[c.nombre] === 'En proceso').length}
+                </span>
+                <span className="px-2 py-1 bg-red-100 text-red-700 rounded">
+                  Cerrados: {filteredClients.filter(c => clientStates[c.nombre] === 'Cerrado').length}
+                </span>
+              </div>
+            </div>
+
             {/* Filtros */}
             <div className="flex flex-wrap gap-3">
               <button
@@ -396,57 +449,71 @@ export default function ClientesPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-96 overflow-y-auto border border-gray-200 rounded-b-lg">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]">
                     CLIENTE
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
                     LOCALIDAD
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <button 
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
+                    KG TOTAL
+                    <button
                       onClick={toggleSortOrder}
-                      className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                      className="ml-1 text-gray-400 hover:text-gray-600"
                     >
-                      KG TOTAL
-                      <svg className={`w-4 h-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                      </svg>
+                      {sortOrder === 'desc' ? '↓' : '↑'}
                     </button>
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
+                    ESTADO
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[60px]">
                     VIAJES
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    DOCUMENTOS
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[60px]">
+                    DOCS
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
                     FECHA
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {getSelectedClients().map((cliente, index) => (
+                {filteredClients.map((cliente, index) => (
                   <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{cliente.nombre}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{cliente.localidad}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <div className="text-sm font-semibold text-gray-900">{formatKg(cliente.kgTotal)} kg</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 text-sm text-gray-900">
+                      <select
+                        value={clientStates[cliente.nombre] || 'Pendiente'}
+                        onChange={(e) => handleStateChange(cliente.nombre, e.target.value)}
+                        className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="Ya tiene vendedor">Ya tiene vendedor</option>
+                        <option value="Ya tiene proveedor">Ya tiene proveedor</option>
+                        <option value="En proceso">En proceso</option>
+                        <option value="Cerrado">Cerrado</option>
+                      </select>
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{cliente.viajes}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{cliente.documentos}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{cliente.fechaUltima}</div>
                     </td>
                   </tr>

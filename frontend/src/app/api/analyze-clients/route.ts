@@ -16,8 +16,9 @@ interface ClientData {
   kgTotal: number;
   viajes: number;
   documentos: number;
-  fechaUltima: string;
   documentosInfo: string[];
+  fechaUltima: string;
+  estado: string; // Nuevo campo para el estado
 }
 
 interface ApiResponse {
@@ -64,7 +65,8 @@ function extractClientInfo(csvContent: string, filename: string): ClientData[] {
           viajes: 1,
           documentos: 1,
           fechaUltima: values[0]?.replace(/"/g, '').trim() || 'Sin fecha',
-          documentosInfo: [filename]
+          documentosInfo: [filename],
+          estado: 'Procesado' // Asumiendo un estado por defecto
         });
       }
     }
@@ -98,11 +100,14 @@ function analyzeClientData(records: AirtableRecord[]): ApiResponse {
           existing.documentosInfo.push(filename);
         }
         // Actualizar fecha si es más reciente
-        if (client.fechaUltima > existing.fechaUltima) {
+        if (client.fechaUltima && existing.fechaUltima && client.fechaUltima > existing.fechaUltima) {
           existing.fechaUltima = client.fechaUltima;
         }
       } else {
-        clientesMap.set(clienteKey, { ...client });
+        clientesMap.set(clienteKey, { 
+          ...client,
+          estado: client.estado || 'Pendiente' // Asegurar que el estado tenga un valor por defecto
+        });
       }
     });
   });
