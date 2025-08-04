@@ -480,9 +480,7 @@ export default function ClientesPage() {
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]">
                     CLIENTE
                   </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
-                    LOCALIDAD
-                  </th>
+
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
                     KG TOTAL
                     <button
@@ -512,9 +510,7 @@ export default function ClientesPage() {
                     <td className="px-3 py-3 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{cliente.nombre}</div>
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{cliente.localidad}</div>
-                    </td>
+
                     <td className="px-3 py-3 whitespace-nowrap">
                       <div className="text-sm font-semibold text-gray-900">{formatKg(cliente.kgTotal)} kg</div>
                     </td>
