@@ -14,9 +14,10 @@ export async function POST() {
       
       return NextResponse.json({
         success: true,
-        message: '✅ Procesamiento completado en Vercel',
+        message: '✅ Registros marcados para procesamiento local',
         result: result,
-        deployed: true
+        deployed: true,
+        note: 'Para extracción completa de PDFs, ejecuta el script Python localmente'
       });
     }
 
@@ -109,8 +110,8 @@ async function processAirtablePDFs() {
     }
 
     try {
-      // Aquí podríamos implementar procesamiento básico
-      // Por ahora, solo marcamos como procesado
+      // En Vercel, no podemos procesar PDFs directamente
+      // Solo marcamos como pendiente para procesamiento local
       await fetch(
         `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${record.id}`,
         {
@@ -121,8 +122,8 @@ async function processAirtablePDFs() {
           },
           body: JSON.stringify({
             fields: {
-              'Estado_Procesamiento': 'Procesado',
-              'CSV': 'Procesado desde Vercel - Requiere procesamiento local para extracción completa'
+              'Estado_Procesamiento': 'Pendiente',
+              'CSV': 'Marcado para procesamiento local'
             }
           })
         }
@@ -139,6 +140,7 @@ async function processAirtablePDFs() {
     processed: processedCount,
     skipped: skippedCount,
     errors: errorCount,
-    total: records.length
+    total: records.length,
+    message: 'Registros marcados para procesamiento local. Ejecuta el script Python localmente para extracción completa.'
   };
 } 
