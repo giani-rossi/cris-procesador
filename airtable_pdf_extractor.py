@@ -36,11 +36,16 @@ class ImprovedPDFExtractor:
             pdf_file = io.BytesIO(pdf_content)
             
             with pdfplumber.open(pdf_file) as pdf:
-                for page in pdf.pages:
+                print(f"📄 PDF tiene {len(pdf.pages)} páginas")
+                for i, page in enumerate(pdf.pages):
                     page_text = page.extract_text()
                     if page_text:
+                        print(f"📄 Página {i+1}: {len(page_text)} caracteres")
                         text_content += page_text + "\n\n"
+                    else:
+                        print(f"⚠️ Página {i+1}: Sin texto extraído")
             
+            print(f"📊 Total extraído: {len(text_content)} caracteres")
             return text_content.strip()
         except Exception as e:
             print(f"Error extracting text from PDF: {e}")
@@ -54,6 +59,11 @@ class ImprovedPDFExtractor:
         delivery_records = []
         lines = text_content.split('\n')
         
+        print(f"🔍 Procesando {len(lines)} líneas de texto")
+        print("📋 Primeras 10 líneas del texto:")
+        for i, line in enumerate(lines[:10]):
+            print(f"  {i+1}: {line}")
+        
         current_client_code = None
         current_client_name = None
         
@@ -62,20 +72,25 @@ class ImprovedPDFExtractor:
         
         # More flexible delivery record pattern
         delivery_patterns = [
-            # Pattern 1: Standard format with Remito
-            r'(\d{2}-\w{3}-\d{2})\s+(\d+)\s+Remito(\d+)\s+(\d+)\s+(\d+)\s+([A-Z\s\-\.]+?)\s+([A-Z\s\-\(\)\.,"]+?)\s+(\d+)\s+(\d+)\s+(\d+\.?\d*)\s+(\d+\.?\d*)',
+            # Pattern 1: Standard format with Remito (CORREGIDO para aceptar punto después del mes)
+            r'(\d{2}-\w{3}\.-?\d{2})\s+(\d+)\s+Remito(\d+)\s+(\d+)\s+(\d+)\s+([A-Z\s\-\.]+?)\s+([A-Z\s\-\(\)\.,"]+?)\s+(\d+)\s+(\d+)\s+(\d+\.?\d*)\s+(\d+\.?\d*)',
             
-            # Pattern 2: Format with Orden de Retiro
-            r'(\d{2}-\w{3}-\d{2})\s+(\d+)\s+Orden de Retiro(\d+)\s+(\d+)\s+(\d+)\s+([A-Z\s\-\.]+?)\s+([A-Z\s\-\(\)\.,"]+?)\s+(\d+)\s+(\d+)\s+(\d+\.?\d*)\s+(\d+\.?\d*)',
+            # Pattern 2: Format with Orden de Retiro (CORREGIDO)
+            r'(\d{2}-\w{3}\.-?\d{2})\s+(\d+)\s+Orden de Retiro(\d+)\s+(\d+)\s+(\d+)\s+([A-Z\s\-\.]+?)\s+([A-Z\s\-\(\)\.,"]+?)\s+(\d+)\s+(\d+)\s+(\d+\.?\d*)\s+(\d+\.?\d*)',
             
-            # Pattern 3: More flexible pattern
-            r'(\d{2}-\w{3}-\d{2})\s+(\d+)\s+(?:Remito|Orden de Retiro)(\d+)\s+(\d+)\s+(\d+)\s+(.+?)\s+([A-Z\s\-\(\)\.,"]+?)\s+(\d+)\s+(\d+)\s+(\d+\.?\d*)\s+(\d+\.?\d*)'
+            # Pattern 3: More flexible pattern (CORREGIDO)
+            r'(\d{2}-\w{3}\.-?\d{2})\s+(\d+)\s+(?:Remito|Orden de Retiro)(\d+)\s+(\d+)\s+(\d+)\s+(.+?)\s+([A-Z\s\-\(\)\.,"]+?)\s+(\d+)\s+(\d+)\s+(\d+\.?\d*)\s+(\d+\.?\d*)'
         ]
+        
+        lines_processed = 0
+        lines_matched = 0
         
         for line in lines:
             line = line.strip()
             if not line:
                 continue
+            
+            lines_processed += 1
             
             # Check if line contains client information
             client_match = re.match(client_pattern, line)
@@ -87,12 +102,15 @@ class ImprovedPDFExtractor:
                 if len(potential_code) <= 6 and not potential_name.isdigit():
                     current_client_code = potential_code
                     current_client_name = potential_name
+                    print(f"👤 Cliente encontrado: {current_client_code} - {current_client_name}")
                     continue
             
             # Try each delivery pattern
             for pattern in delivery_patterns:
                 delivery_match = re.search(pattern, line)
                 if delivery_match:
+                    lines_matched += 1
+                    print(f"✅ Línea {lines_processed} coincide con patrón: {line[:50]}...")
                     try:
                         # Extract data based on the pattern
                         groups = delivery_match.groups()
@@ -120,7 +138,24 @@ class ImprovedPDFExtractor:
                     except (ValueError, IndexError) as e:
                         print(f"Error parsing line: {line[:50]}... - {e}")
                         continue
+                else:
+                    # Debug: show why line doesn't match
+                    if lines_processed <= 20:  # Only show first 20 lines for debug
+                        print(f"❌ Línea {lines_processed} NO coincide: '{line}'")
+                        # Test each part of the pattern
+                        test_pattern = r'(\d{2}-\w{3}\.-?\d{2})'
+                        if re.search(test_pattern, line):
+                            print(f"   ✅ Fecha encontrada")
+                        else:
+                            print(f"   ❌ Fecha NO encontrada")
+                        
+                        test_pattern = r'Remito\d+'
+                        if re.search(test_pattern, line):
+                            print(f"   ✅ Remito encontrado")
+                        else:
+                            print(f"   ❌ Remito NO encontrado")
         
+        print(f"📊 Resumen: {lines_processed} líneas procesadas, {lines_matched} líneas coincidieron")
         return delivery_records
     
     def parse_simple_table_data(self, text_content):
@@ -298,9 +333,19 @@ class ImprovedPDFExtractor:
             
             extracted_content = self.process_pdf_content(pdf_content)
             
-            if not extracted_content:
-                print(f"No content could be extracted from PDF: {filename}")
-                # Marcar como error
+            # Validate extraction quality
+            if len(extracted_content) < 500:
+                print(f"⚠️ ADVERTENCIA: Extracción muy corta ({len(extracted_content)} caracteres) para {filename}")
+                print(f"📝 Contenido extraído: {extracted_content[:200]}...")
+                print(f"❌ Marcando como ERROR en Airtable")
+                self.table.update(record_id, {status_field_name: 'Error'})
+                return 'error'
+            
+            # Validate that we found at least some records
+            if "REGISTROS ENCONTRADOS: 0" in extracted_content:
+                print(f"⚠️ ADVERTENCIA: No se encontraron registros válidos para {filename}")
+                print(f"📝 Contenido extraído: {extracted_content[:200]}...")
+                print(f"❌ Marcando como ERROR en Airtable")
                 self.table.update(record_id, {status_field_name: 'Error'})
                 return 'error'
             
@@ -308,14 +353,23 @@ class ImprovedPDFExtractor:
             print(f"📝 Contenido extraído (primeros 200 chars): {extracted_content[:200]}...")
             print(f"📏 Longitud del contenido: {len(extracted_content)}")
             
-            # Actualizar con contenido y estado
-            self.table.update(record_id, {
-                output_field_name: extracted_content,
-                status_field_name: 'Procesado'
-            })
-            
-            print(f"✅ Successfully processed {filename}")
-            return 'success'
+            # If we found structured data, convert to CSV
+            if extracted_content.startswith("\n\n") and extracted_content.endswith("\n\n REGISTROS ENCONTRADOS:"):
+                csv_content = extracted_content[2:-2] # Remove the first two newlines and last two newlines
+                self.table.update(record_id, {
+                    output_field_name: csv_content,
+                    status_field_name: 'Procesado'
+                })
+                print(f"✅ Successfully processed {filename}")
+                return 'success'
+            else:
+                # If no structured data found, return raw text
+                self.table.update(record_id, {
+                    output_field_name: extracted_content,
+                    status_field_name: 'Procesado'
+                })
+                print(f"✅ Successfully processed {filename}")
+                return 'success'
             
         except Exception as e:
             print(f"❌ Error processing record {record_id}: {e}")
