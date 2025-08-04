@@ -65,11 +65,16 @@ export default function ClientesPage() {
   const runProcessingScript = async () => {
     try {
       setProcessingScript(true);
+      console.log('🚀 Iniciando procesamiento...');
+      
       const response = await fetch('/api/run-script', {
         method: 'POST',
       });
       
+      console.log('📡 Respuesta recibida:', response.status);
+      
       const result = await response.json();
+      console.log('📊 Resultado:', result);
       
       if (result.success) {
         if (result.deployed) {
@@ -85,6 +90,7 @@ export default function ClientesPage() {
         alert(`❌ Error: ${result.error}\n\nDetalles: ${result.details}`);
       }
     } catch (err) {
+      console.error('❌ Error completo:', err);
       alert(`❌ Error ejecutando script: ${err instanceof Error ? err.message : 'Error desconocido'}`);
     } finally {
       setProcessingScript(false);
