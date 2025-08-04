@@ -1,0 +1,47 @@
+name: Process PDFs from Airtable
+
+on:
+  workflow_dispatch: # Trigger manual desde GitHub
+  schedule:
+    - cron: '0 */6 * * *' # Cada 6 horas automáticamente
+  push:
+    paths:
+      - 'airtable_pdf_extractor.py' # Cuando se actualice el script
+  repository_dispatch:
+    types: [process_pdfs_trigger] # Trigger desde Vercel
+
+jobs:
+  process-pdfs:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      - name: Install dependencies
+        run: |
+          pip install pyairtable PyPDF2 pdfplumber requests
+          
+      - name: Run PDF processor
+        run: python airtable_pdf_extractor.py
+        env:
+          AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          AIRTABLE_TABLE_NAME: ${{ secrets.AIRTABLE_TABLE_NAME }}
+          
+      - name: Notify success
+        if: success()
+        run: |
+          echo "✅ PDFs procesados exitosamente"
+          echo "📊 Revisa Airtable para ver los resultados"
+          
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "❌ Error procesando PDFs"
+          echo "🔍 Revisa los logs para más detalles" 

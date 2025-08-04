@@ -105,11 +105,48 @@ export default function ClientesPage() {
     setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
   };
 
-  const handleStateChange = (clientName: string, newState: string) => {
-    setClientStates(prev => ({
-      ...prev,
-      [clientName]: newState
-    }));
+  const handleStateChange = async (clientName: string, newState: string) => {
+    try {
+      // Actualizar estado local inmediatamente para UI responsiva
+      setClientStates(prev => ({
+        ...prev,
+        [clientName]: newState
+      }));
+
+      // Guardar en Airtable
+      const response = await fetch('/api/update-client-state', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clientName,
+          newState
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        console.error('❌ Error guardando estado:', result.error);
+        // Revertir estado local si falla
+        setClientStates(prev => ({
+          ...prev,
+          [clientName]: prev[clientName] || 'Pendiente'
+        }));
+        alert(`Error guardando estado: ${result.error}`);
+      } else {
+        console.log(`✅ Estado guardado para ${clientName}: ${newState}`);
+      }
+    } catch (error) {
+      console.error('❌ Error en handleStateChange:', error);
+      // Revertir estado local si falla
+      setClientStates(prev => ({
+        ...prev,
+        [clientName]: prev[clientName] || 'Pendiente'
+      }));
+      alert('Error guardando estado. Intenta de nuevo.');
+    }
   };
 
   const filteredClients = data?.clientesAnalizados.filter(client => {

@@ -1,187 +1,177 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST() {
+interface ScriptResponse {
+  success: boolean;
+  message: string;
+  deployed?: boolean;
+  note?: string;
+  error?: string;
+  details?: string;
+}
+
+export async function POST(request: NextRequest): Promise<NextResponse<ScriptResponse>> {
   try {
-    console.log('🚀 Iniciando procesamiento de PDFs...');
+    console.log('🚀 Iniciando ejecución de script desde Vercel...');
 
-    // En Vercel, no podemos ejecutar scripts Python directamente
-    // Vamos a usar una solución alternativa: procesar directamente desde la API
-    const isVercel = process.env.VERCEL === '1';
+    // Opción 1: Llamar a un servicio externo (Railway, Render, etc.)
+    const externalServiceUrl = process.env.EXTERNAL_SCRIPT_URL;
     
-    if (isVercel) {
-      // En Vercel, procesar directamente usando la API de Airtable
-      const result = await processAirtablePDFs();
+    if (externalServiceUrl) {
+      console.log('📡 Llamando a servicio externo...');
       
+      const response = await fetch(externalServiceUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.EXTERNAL_SERVICE_TOKEN}`
+        },
+        body: JSON.stringify({
+          action: 'process_pdfs',
+          airtable_config: {
+            api_key: process.env.AIRTABLE_API_KEY,
+            base_id: process.env.AIRTABLE_BASE_ID,
+            table_name: process.env.AIRTABLE_TABLE_NAME
+          }
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        return NextResponse.json({
+          success: true,
+          message: 'Script ejecutado exitosamente en servicio externo',
+          deployed: true,
+          note: 'Los PDFs han sido procesados y los datos actualizados en Airtable'
+        });
+      } else {
+        return NextResponse.json({
+          success: false,
+          message: 'Error en servicio externo',
+          error: 'Error en servicio externo',
+          details: result.error || 'Error desconocido'
+        });
+      }
+    }
+
+    // Opción 2: Trigger GitHub Actions
+    console.log('🚀 Triggering GitHub Actions workflow...');
+    
+    const githubToken = process.env.GITHUB_TOKEN;
+    const githubRepo = process.env.GITHUB_REPO;
+    
+    if (githubToken && githubRepo) {
+      try {
+        const [owner, repo] = githubRepo.split('/');
+        
+        const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/dispatches`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `token ${githubToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            event_type: 'process_pdfs_trigger',
+            client_payload: {
+              source: 'vercel_app',
+              timestamp: new Date().toISOString()
+            }
+          })
+        });
+        
+        if (response.ok) {
+          return NextResponse.json({
+            success: true,
+            message: 'GitHub Actions workflow iniciado',
+            deployed: true,
+            note: 'El script se ejecutará en GitHub Actions. Revisa los logs en GitHub.'
+          });
+        } else {
+          console.error('Error triggering GitHub Actions:', response.status, response.statusText);
+        }
+      } catch (error) {
+        console.error('Error calling GitHub API:', error);
+      }
+    }
+    
+    // Fallback: Marcar registros para procesamiento local
+    console.log('📝 Marcando registros para procesamiento local...');
+    
+    const apiKey = process.env.AIRTABLE_API_KEY;
+    const baseId = process.env.AIRTABLE_BASE_ID;
+    const tableName = process.env.AIRTABLE_TABLE_NAME;
+
+    if (!apiKey || !baseId || !tableName) {
       return NextResponse.json({
-        success: true,
-        message: '✅ Registros marcados para procesamiento local',
-        result: result,
-        deployed: true,
-        note: 'Para extracción completa de PDFs, ejecuta el script Python localmente'
+        success: false,
+        message: 'Configuración de Airtable incompleta',
+        error: 'Configuración de Airtable incompleta'
       });
     }
 
-    // Solo ejecutar localmente
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-
-    const execAsync = promisify(exec);
-
-    // Ejecutar el script de Python
-    const { stdout, stderr } = await execAsync(
-      'cd /Users/gianirossi/Desktop/cris-procesador && source venv/bin/activate && python airtable_pdf_extractor.py',
-      {
-        shell: '/bin/zsh',
-        timeout: 300000 // 5 minutos de timeout
+    // Obtener registros pendientes
+    const response = await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
       }
-    );
+    });
 
-    console.log('✅ Script ejecutado exitosamente');
-    console.log('📊 Output:', stdout);
+    if (!response.ok) {
+      throw new Error(`Error obteniendo registros: ${response.status}`);
+    }
 
-    if (stderr) {
-      console.log('⚠️ Warnings:', stderr);
+    const data = await response.json();
+    const records = data.records;
+    let processedCount = 0;
+
+    // Marcar registros como pendientes
+    for (const record of records) {
+      const pdfField = record.fields?.Documento;
+      const statusField = record.fields?.Estado_Procesamiento;
+
+      if (pdfField && Array.isArray(pdfField) && pdfField.length > 0) {
+        if (statusField !== 'Procesado' && statusField !== 'Pendiente') {
+          try {
+            const updateResponse = await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}/${record.id}`, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                fields: {
+                  'Estado_Procesamiento': 'Pendiente',
+                  'CSV': 'Marcado para procesamiento desde Vercel'
+                }
+              })
+            });
+
+            if (updateResponse.ok) {
+              processedCount++;
+            }
+          } catch (error) {
+            console.error(`Error actualizando registro ${record.id}:`, error);
+          }
+        }
+      }
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Script ejecutado exitosamente',
-      output: stdout,
-      warnings: stderr || null
+      message: `Marcados ${processedCount} registros para procesamiento`,
+      deployed: true,
+      note: `Para procesar completamente los PDFs, ejecuta localmente: python3 airtable_pdf_extractor.py`
     });
 
   } catch (error) {
     console.error('❌ Error ejecutando script:', error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Error ejecutando el script de procesamiento',
-        details: error instanceof Error ? error.message : 'Error desconocido'
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: 'Error interno del servidor',
+      details: error instanceof Error ? error.message : 'Error desconocido'
+    });
   }
-}
-
-async function processAirtablePDFs() {
-  const apiKey = process.env.AIRTABLE_API_KEY;
-  const baseId = process.env.AIRTABLE_BASE_ID;
-  const tableName = process.env.AIRTABLE_TABLE_NAME;
-
-  if (!apiKey || !baseId || !tableName) {
-    throw new Error('Missing environment variables');
-  }
-
-  // Obtener registros de Airtable
-  const response = await fetch(
-    `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`,
-    {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Airtable API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const records = data.records || [];
-
-  let processedCount = 0;
-  let skippedCount = 0;
-  let errorCount = 0;
-
-  for (const record of records) {
-    // Validar que el record tiene un ID
-    if (!record.id) {
-      console.log(`⚠️ Record without ID found`);
-      continue;
-    }
-
-    const pdfField = record.fields?.Documento;
-    const statusField = record.fields?.Estado_Procesamiento;
-
-    if (!pdfField || !Array.isArray(pdfField) || pdfField.length === 0) {
-      console.log(`⚠️ No PDF field found in record ${record.id}`);
-      continue;
-    }
-
-    // Verificar estado
-    if (statusField === 'Procesado') {
-      skippedCount++;
-      continue;
-    }
-
-    try {
-      // Validar que el primer elemento existe y tiene las propiedades necesarias
-      const firstPdf = pdfField[0];
-      if (!firstPdf || typeof firstPdf !== 'object') {
-        console.log(`⚠️ Invalid PDF data in record ${record.id}`);
-        continue;
-      }
-
-      const filename = firstPdf.filename || 'unknown.pdf';
-      
-      // En Vercel, marcamos como pendiente para procesamiento local
-      // ya que no podemos procesar PDFs directamente en el entorno serverless
-      await fetch(
-        `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${record.id}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            fields: {
-              'Estado_Procesamiento': 'Pendiente',
-              'CSV': 'Marcado para procesamiento local - Ejecuta script Python localmente'
-            }
-          })
-        }
-      );
-
-      processedCount++;
-      console.log(`✅ Marcado para procesamiento local: ${filename}`);
-      
-    } catch (error) {
-      console.error(`Error processing record ${record.id}:`, error);
-      
-      // Marcar como error
-      try {
-        await fetch(
-          `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${record.id}`,
-          {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              fields: {
-                'Estado_Procesamiento': 'Error',
-                'CSV': `Error: ${error instanceof Error ? error.message : 'Error desconocido'}`
-              }
-            })
-          }
-        );
-      } catch (updateError) {
-        console.error('Error updating record status:', updateError);
-      }
-      
-      errorCount++;
-    }
-  }
-
-  return {
-    processed: processedCount,
-    skipped: skippedCount,
-    errors: errorCount,
-    total: records.length,
-    message: 'Registros marcados para procesamiento local. Para extracción completa, ejecuta el script Python localmente.'
-  };
 } 
