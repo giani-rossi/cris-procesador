@@ -2,8 +2,8 @@ declare module 'pdf-parse' {
   interface PDFData {
     text: string;
     numpages: number;
-    info: any;
-    metadata: any;
+    info: Record<string, unknown>;
+    metadata: Record<string, unknown>;
     version: string;
   }
 

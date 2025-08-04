@@ -163,32 +163,13 @@ export default function ClientesPage() {
     .sort((a, b) => b.kgTotal - a.kgTotal)
     .slice(0, 10);
 
-  const getSelectedClients = () => {
-    let clients: ClientData[] = [];
-    
-    switch (selectedSegment) {
-      case 'chicas':
-        clients = segmentacion.cuentasChicas;
-        break;
-      case 'medianas':
-        clients = segmentacion.cuentasMedianas;
-        break;
-      case 'grandes':
-        clients = segmentacion.cuentasGrandes;
-        break;
-      default:
-        clients = [];
-    }
-    
-    // Ordenar por kgTotal según el sortOrder
-    return clients.sort((a, b) => {
-      if (sortOrder === 'desc') {
-        return b.kgTotal - a.kgTotal; // Mayor a menor
-      } else {
-        return a.kgTotal - b.kgTotal; // Menor a mayor
-      }
-    });
-  };
+  // Función para obtener clientes seleccionados (no utilizada actualmente)
+  // const getSelectedClients = () => {
+  //   return data?.clientesAnalizados.filter(client => 
+  //     clientStates[client.nombre] === 'Ya tiene vendedor' || 
+  //     clientStates[client.nombre] === 'Ya tiene proveedor'
+  //   ) || [];
+  // };
 
   const formatKg = (kg: number) => {
     return new Intl.NumberFormat('es-AR').format(kg);
