@@ -110,29 +110,8 @@ async function processAirtablePDFs() {
     }
 
     try {
-      // Procesar PDF usando JavaScript
-      const pdfUrl = pdfField[0].url;
-      const filename = pdfField[0].filename || 'unknown.pdf';
-      
-      console.log(`📄 Procesando: ${filename}`);
-      
-      // Descargar PDF
-      const pdfResponse = await fetch(pdfUrl);
-      if (!pdfResponse.ok) {
-        throw new Error(`Failed to download PDF: ${pdfResponse.status}`);
-      }
-      
-      const pdfBuffer = await pdfResponse.arrayBuffer();
-      const pdfText = await extractTextFromPDF(pdfBuffer);
-      
-      if (!pdfText) {
-        throw new Error('No text extracted from PDF');
-      }
-      
-      // Procesar texto extraído
-      const processedData = processPDFText(pdfText, filename);
-      
-      // Actualizar Airtable
+      // En Vercel, marcamos como pendiente para procesamiento local
+      // ya que no podemos procesar PDFs directamente en el entorno serverless
       await fetch(
         `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${record.id}`,
         {
@@ -143,15 +122,15 @@ async function processAirtablePDFs() {
           },
           body: JSON.stringify({
             fields: {
-              'Estado_Procesamiento': 'Procesado',
-              'CSV': processedData
+              'Estado_Procesamiento': 'Pendiente',
+              'CSV': 'Marcado para procesamiento local - Ejecuta script Python localmente'
             }
           })
         }
       );
 
       processedCount++;
-      console.log(`✅ Procesado exitosamente: ${filename}`);
+      console.log(`✅ Marcado para procesamiento local: ${pdfField[0].filename || 'unknown.pdf'}`);
       
     } catch (error) {
       console.error(`Error processing record ${record.id}:`, error);
@@ -187,116 +166,6 @@ async function processAirtablePDFs() {
     skipped: skippedCount,
     errors: errorCount,
     total: records.length,
-    message: 'Procesamiento completado en JavaScript'
+    message: 'Registros marcados para procesamiento local. Para extracción completa, ejecuta el script Python localmente.'
   };
-}
-
-async function extractTextFromPDF(pdfBuffer: ArrayBuffer): Promise<string> {
-  try {
-    // Importar pdf-parse dinámicamente
-    const pdfParse = await import('pdf-parse');
-    
-    // Convertir ArrayBuffer a Buffer
-    const buffer = Buffer.from(pdfBuffer);
-    
-    // Extraer texto del PDF
-    const data = await pdfParse.default(buffer);
-    return data.text;
-  } catch (error) {
-    console.error('Error extracting text from PDF:', error);
-    return "";
-  }
-}
-
-function processPDFText(text: string, filename: string): string {
-  try {
-    // Implementar lógica de procesamiento similar a Python
-    const lines = text.split('\n');
-    const deliveryRecords = [];
-    
-    // Patrones regex para extraer datos
-    const deliveryPattern = /(\d{2}-\w{3}\.-?\d{2})\s+(\d+)\s+Remito(\d+)\s+(\d+)\s+(\d+)\s+([A-Z\s\-\.]+?)\s+([A-Z\s\-\(\)\.,"]+?)\s+(\d+)\s+(\d+)\s+(\d+\.?\d*)\s+(\d+\.?\d*)/;
-    
-    let currentClientCode = '';
-    let currentClientName = '';
-    
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (!trimmedLine) continue;
-      
-      // Buscar información de cliente
-      const clientMatch = trimmedLine.match(/^(\d+)\s+(.+)$/);
-      if (clientMatch && !trimmedLine.match(/\d{2}-\w{3}-\d{2}/)) {
-        const potentialCode = clientMatch[1];
-        const potentialName = clientMatch[2].trim();
-        
-        if (potentialCode.length <= 6 && !potentialName.match(/^\d+$/)) {
-          currentClientCode = potentialCode;
-          currentClientName = potentialName;
-          continue;
-        }
-      }
-      
-      // Buscar registros de entrega
-      const deliveryMatch = trimmedLine.match(deliveryPattern);
-      if (deliveryMatch) {
-        const groups = deliveryMatch;
-        if (groups.length >= 11) {
-          const record = {
-            fecha: groups[1] || '',
-            transac_nr: groups[2] || '',
-            remito: groups[3] || '',
-            viaje_nr: groups[4] || '',
-            chofer_code: groups[5] || '',
-            chofer: groups[6] || '',
-            localidad_entrega: groups[7] || '',
-            cliente_codigo: currentClientCode,
-            cliente_nombre: currentClientName,
-            codigo_destino: '',
-            bultos: groups[8] || '0',
-            cantidad: parseFloat(groups[9]) || 0.0,
-            peso_neto: parseFloat(groups[10]) || 0.0,
-            peso_bruto: parseFloat(groups[11]) || 0.0
-          };
-          
-          deliveryRecords.push(record);
-        }
-      }
-    }
-    
-    // Convertir a CSV
-    if (deliveryRecords.length === 0) {
-      return "No se pudieron extraer registros estructurados del PDF";
-    }
-    
-    const csvHeaders = [
-      'Fecha', 'Viaje_Nr', 'Chofer', 'TransacNr', 'Remito',
-      'Cliente_Codigo', 'Cliente_Nombre', 'Localidad_Entrega',
-      'Codigo_Destino', 'Bultos', 'Cantidad', 'Peso_Neto', 'Peso_Bruto'
-    ];
-    
-    const csvRows = deliveryRecords.map(record => [
-      record.fecha,
-      record.viaje_nr,
-      record.chofer,
-      record.transac_nr,
-      record.remito,
-      record.cliente_codigo,
-      record.cliente_nombre,
-      record.localidad_entrega,
-      record.codigo_destino,
-      record.bultos,
-      record.cantidad,
-      record.peso_neto,
-      record.peso_bruto
-    ].join(','));
-    
-    const csvContent = [csvHeaders.join(','), ...csvRows].join('\n');
-    
-    return `${csvContent}\n\n REGISTROS ENCONTRADOS: ${deliveryRecords.length} ===`;
-    
-  } catch (error) {
-    console.error('Error processing PDF text:', error);
-    return `Error procesando PDF: ${error instanceof Error ? error.message : 'Error desconocido'}`;
-  }
 } 
