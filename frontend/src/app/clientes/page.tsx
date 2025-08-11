@@ -13,6 +13,7 @@ interface ClientData {
   fechaUltima: string;
   estado: string;
   documentosInfo?: string[]; // Agregar información de documentos
+  cuit?: string; // CUIT de la empresa
 }
 
 interface Segmentacion {
@@ -40,12 +41,15 @@ interface ApiResponse {
 export default function ClientesPage() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedSegment, setSelectedSegment] = useState<'chicas' | 'medianas' | 'grandes'>('grandes');
+  const [selectedSegment, setSelectedSegment] = useState<'todos' | 'chicas' | 'medianas' | 'grandes'>('todos');
   const [error, setError] = useState<string | null>(null);
   const [processingScript, setProcessingScript] = useState(false);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [clientStates, setClientStates] = useState<{[key: string]: string}>({});
   const [statusFilter, setStatusFilter] = useState<string>('Todos');
+  const [clientCuits, setClientCuits] = useState<{[key: string]: string}>({});
+  const [loadingCuits, setLoadingCuits] = useState<{[key: string]: boolean}>({});
+  const [airtableCuits, setAirtableCuits] = useState<{[key: string]: string}>({});
 
   const fetchData = async () => {
     try {
@@ -59,12 +63,13 @@ export default function ClientesPage() {
       const result = await response.json();
       setData(result);
       
-      // Cargar estados de clientes desde la nueva tabla
+      // Cargar estados y CUITs de clientes desde la nueva tabla
       try {
         const statesResponse = await fetch('/api/client-states');
         const statesData = await statesResponse.json();
         if (statesData.success) {
           setClientStates(statesData.clientStates);
+          setAirtableCuits(statesData.clientCuits || {});
         }
       } catch (error) {
         console.error('Error cargando estados de clientes:', error);
@@ -119,6 +124,72 @@ export default function ClientesPage() {
     setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
   };
 
+  const searchCuit = async (clientName: string) => {
+    try {
+      // Marcar como cargando
+      setLoadingCuits(prev => ({ ...prev, [clientName]: true }));
+
+      const response = await fetch('/api/search-cuit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ companyName: clientName })
+      });
+
+      const result = await response.json();
+
+      if (result.error) {
+        console.error('Error buscando CUIT:', result.error);
+        setClientCuits(prev => ({ ...prev, [clientName]: 'Error' }));
+      } else {
+        setClientCuits(prev => ({ ...prev, [clientName]: result.cuit }));
+      }
+    } catch (error) {
+      console.error('Error en searchCuit:', error);
+      setClientCuits(prev => ({ ...prev, [clientName]: 'Error' }));
+    } finally {
+      setLoadingCuits(prev => ({ ...prev, [clientName]: false }));
+    }
+  };
+
+
+
+  const saveCuitToAirtable = async (clientName: string, cuit: string) => {
+    try {
+      const response = await fetch('/api/update-client-cuit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clientName,
+          cuit
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log(`✅ CUIT guardado para ${clientName}: ${cuit}`);
+        // Actualizar estado local
+        setAirtableCuits(prev => ({
+          ...prev,
+          [clientName]: cuit
+        }));
+        return true;
+      } else {
+        console.error('❌ Error guardando CUIT:', result.error);
+        alert(`Error guardando CUIT: ${result.error}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error en saveCuitToAirtable:', error);
+      alert('Error guardando CUIT. Intenta de nuevo.');
+      return false;
+    }
+  };
+
   const handleStateChange = async (clientName: string, newState: string) => {
     try {
       // Actualizar estado local inmediatamente para UI responsiva
@@ -164,9 +235,24 @@ export default function ClientesPage() {
   };
 
   const filteredClients = data?.clientesAnalizados.filter(client => {
-    if (statusFilter === 'Todos') return true;
-    const clientState = clientStates[client.nombre] || 'Pendiente';
-    return clientState === statusFilter;
+    // Filtrar por estado
+    if (statusFilter !== 'Todos') {
+      const clientState = clientStates[client.nombre] || 'Pendiente';
+      if (clientState !== statusFilter) return false;
+    }
+    
+    // Filtrar por segmento
+    if (selectedSegment === 'todos') {
+      return true; // Mostrar todos los clientes
+    } else if (selectedSegment === 'chicas') {
+      return client.kgTotal >= 1000 && client.kgTotal < 7000;
+    } else if (selectedSegment === 'medianas') {
+      return client.kgTotal >= 7000 && client.kgTotal < 12000;
+    } else if (selectedSegment === 'grandes') {
+      return client.kgTotal >= 12000;
+    }
+    
+    return true;
   }) || [];
 
   if (loading) {
@@ -453,7 +539,17 @@ export default function ClientesPage() {
             </div>
 
             {/* Filtros */}
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 mb-4">
+              <button
+                onClick={() => setSelectedSegment('todos')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  selectedSegment === 'todos'
+                    ? 'bg-purple-100 text-purple-800 border-2 border-purple-300'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Todos los Clientes
+              </button>
               <button
                 onClick={() => setSelectedSegment('chicas')}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -485,6 +581,8 @@ export default function ClientesPage() {
                 Cuentas Grandes (+12K kg)
               </button>
             </div>
+
+
           </div>
 
           <div className="overflow-x-auto max-h-96 overflow-y-auto border border-gray-200 rounded-b-lg">
@@ -506,6 +604,9 @@ export default function ClientesPage() {
                   </th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
                     ESTADO
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
+                    CUIT
                   </th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[60px]">
                     VIAJES
@@ -540,6 +641,34 @@ export default function ClientesPage() {
                         <option value="En proceso">En proceso</option>
                         <option value="Cerrado">Cerrado</option>
                       </select>
+                    </td>
+                    <td className="px-3 py-3 text-sm text-gray-900">
+                      {clientStates[cliente.nombre] === 'En proceso' ? (
+                        <div className="flex items-center gap-2">
+                          {loadingCuits[cliente.nombre] ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          ) : airtableCuits[cliente.nombre] ? (
+                            <div className="text-xs text-gray-700 max-w-xs">
+                              {airtableCuits[cliente.nombre]}
+                            </div>
+                          ) : clientCuits[cliente.nombre] ? (
+                            <div className="text-xs text-gray-700 max-w-xs">
+                              {clientCuits[cliente.nombre]}
+                            </div>
+                          ) : (
+                            <a
+                              href={`https://www.cuitonline.com/search/${encodeURIComponent(cliente.nombre.toLowerCase().replace(/\s+(SA|SRL|S\.A\.|S\.R\.L\.)$/i, ''))}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 inline-block"
+                            >
+                              Ver en CuitOnline
+                            </a>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{cliente.viajes}</div>

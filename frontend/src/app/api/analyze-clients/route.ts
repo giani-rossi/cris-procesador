@@ -78,31 +78,8 @@ function extractClientInfo(csvContent: string, filename: string): ClientData[] {
   return clients;
 }
 
-function analyzeClientData(records: AirtableRecord[]): ApiResponse {
+function analyzeClientData(records: AirtableRecord[], estadosMap: Map<string, string> = new Map()): ApiResponse {
   const clientesMap = new Map<string, ClientData>();
-  
-  // Crear un mapa de estados por nombre de cliente
-  const estadosMap = new Map<string, string>();
-  records.forEach((record: AirtableRecord) => {
-    const csvContent = record.fields.CSV;
-    if (csvContent && typeof csvContent === 'string') {
-      const lines = csvContent.split('\n');
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line.trim()) continue;
-        
-        const values = line.split(',');
-        if (values.length >= 7) {
-          const clienteNombre = values[6]?.replace(/"/g, '').trim();
-          if (clienteNombre) {
-            // Usar el estado del registro si existe, o 'Pendiente' por defecto
-            const estado = record.fields.Estado_Cliente || 'Pendiente';
-            estadosMap.set(clienteNombre, estado);
-          }
-        }
-      }
-    }
-  });
   
   records.forEach((record: AirtableRecord) => {
     const csvContent = record.fields.CSV;
@@ -177,6 +154,7 @@ export async function GET() {
     const apiKey = process.env.AIRTABLE_API_KEY;
     const baseId = process.env.AIRTABLE_BASE_ID;
     const tableName = process.env.AIRTABLE_TABLE_NAME;
+    const statesTableName = process.env.AIRTABLE_CLIENT_STATES_TABLE_NAME;
 
     if (!apiKey || !baseId || !tableName) {
       return NextResponse.json(
@@ -185,6 +163,7 @@ export async function GET() {
       );
     }
 
+    // Cargar datos principales
     const response = await fetch(
       `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`,
       {
@@ -201,8 +180,39 @@ export async function GET() {
 
     const data = await response.json();
     const records: AirtableRecord[] = data.records || [];
+
+    // Cargar estados desde la tabla separada
+    let estadosMap = new Map<string, string>();
+    if (statesTableName) {
+      try {
+        const statesResponse = await fetch(
+          `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(statesTableName)}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (statesResponse.ok) {
+          const statesData = await statesResponse.json();
+          const statesRecords = statesData.records || [];
+          
+          statesRecords.forEach((record: any) => {
+            const clienteNombre = record.fields.Cliente_Nombre;
+            const estado = record.fields.Estado_Cliente;
+            if (clienteNombre && estado) {
+              estadosMap.set(clienteNombre, estado);
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error cargando estados de clientes:', error);
+      }
+    }
     
-    const result = analyzeClientData(records);
+    const result = analyzeClientData(records, estadosMap);
     
     return NextResponse.json(result);
   } catch (error) {

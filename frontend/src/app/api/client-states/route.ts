@@ -6,12 +6,14 @@ interface ClientState {
     Cliente_Nombre?: string;
     Estado_Cliente?: string;
     Fecha_Actualizacion?: string;
+    CUIT?: string;
   };
 }
 
 interface ClientStatesResponse {
   success: boolean;
   clientStates: Record<string, string>;
+  clientCuits: Record<string, string>;
   error?: string;
 }
 
@@ -46,19 +48,27 @@ export async function GET(): Promise<NextResponse<ClientStatesResponse>> {
     const data = await response.json();
     const records: ClientState[] = data.records || [];
 
-    // Convertir a objeto { cliente: estado }
+    // Convertir a objetos { cliente: estado } y { cliente: cuit }
     const clientStates: Record<string, string> = {};
+    const clientCuits: Record<string, string> = {};
     records.forEach((record) => {
       const clienteNombre = record.fields.Cliente_Nombre;
       const estado = record.fields.Estado_Cliente;
-      if (clienteNombre && estado) {
-        clientStates[clienteNombre] = estado;
+      const cuit = record.fields.CUIT;
+      if (clienteNombre) {
+        if (estado) {
+          clientStates[clienteNombre] = estado;
+        }
+        if (cuit) {
+          clientCuits[clienteNombre] = cuit;
+        }
       }
     });
 
     return NextResponse.json({
       success: true,
-      clientStates
+      clientStates,
+      clientCuits
     });
 
   } catch (error) {
