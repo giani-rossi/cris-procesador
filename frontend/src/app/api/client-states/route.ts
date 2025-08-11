@@ -26,7 +26,7 @@ export async function GET(): Promise<NextResponse<ClientStatesResponse>> {
 
     if (!apiKey || !baseId || !tableName) {
       return NextResponse.json(
-        { success: false, clientStates: {}, error: 'Configuración de Airtable incompleta' },
+        { success: false, clientStates: {}, clientCuits: {}, error: 'Configuración de Airtable incompleta' },
         { status: 500 }
       );
     }
