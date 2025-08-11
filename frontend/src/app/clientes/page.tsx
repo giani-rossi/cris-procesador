@@ -124,71 +124,11 @@ export default function ClientesPage() {
     setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
   };
 
-  const searchCuit = async (clientName: string) => {
-    try {
-      // Marcar como cargando
-      setLoadingCuits(prev => ({ ...prev, [clientName]: true }));
-
-      const response = await fetch('/api/search-cuit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ companyName: clientName })
-      });
-
-      const result = await response.json();
-
-      if (result.error) {
-        console.error('Error buscando CUIT:', result.error);
-        setClientCuits(prev => ({ ...prev, [clientName]: 'Error' }));
-      } else {
-        setClientCuits(prev => ({ ...prev, [clientName]: result.cuit }));
-      }
-    } catch (error) {
-      console.error('Error en searchCuit:', error);
-      setClientCuits(prev => ({ ...prev, [clientName]: 'Error' }));
-    } finally {
-      setLoadingCuits(prev => ({ ...prev, [clientName]: false }));
-    }
-  };
 
 
 
-  const saveCuitToAirtable = async (clientName: string, cuit: string) => {
-    try {
-      const response = await fetch('/api/update-client-cuit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          clientName,
-          cuit
-        })
-      });
 
-      const result = await response.json();
 
-      if (result.success) {
-        console.log(`✅ CUIT guardado para ${clientName}: ${cuit}`);
-        // Actualizar estado local
-        setAirtableCuits(prev => ({
-          ...prev,
-          [clientName]: cuit
-        }));
-        return true;
-      } else {
-        console.error('❌ Error guardando CUIT:', result.error);
-        alert(`Error guardando CUIT: ${result.error}`);
-        return false;
-      }
-    } catch (error) {
-      console.error('❌ Error en saveCuitToAirtable:', error);
-      alert('Error guardando CUIT. Intenta de nuevo.');
-      return false;
-    }
-  };
 
   const handleStateChange = async (clientName: string, newState: string) => {
     try {

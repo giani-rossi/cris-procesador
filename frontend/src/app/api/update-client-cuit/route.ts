@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-interface ClientState {
-  id: string;
-  fields: {
-    Cliente_Nombre?: string;
-    Estado_Cliente?: string;
-    Fecha_Actualizacion?: string;
-    CUIT?: string;
-  };
-}
+
 
 // POST - Actualizar CUIT de cliente
 export async function POST(request: NextRequest): Promise<NextResponse> {

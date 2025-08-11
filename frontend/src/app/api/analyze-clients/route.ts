@@ -182,7 +182,7 @@ export async function GET() {
     const records: AirtableRecord[] = data.records || [];
 
     // Cargar estados desde la tabla separada
-    let estadosMap = new Map<string, string>();
+    const estadosMap = new Map<string, string>();
     if (statesTableName) {
       try {
         const statesResponse = await fetch(
@@ -199,7 +199,7 @@ export async function GET() {
           const statesData = await statesResponse.json();
           const statesRecords = statesData.records || [];
           
-          statesRecords.forEach((record: any) => {
+          statesRecords.forEach((record: { fields: { Cliente_Nombre?: string; Estado_Cliente?: string } }) => {
             const clienteNombre = record.fields.Cliente_Nombre;
             const estado = record.fields.Estado_Cliente;
             if (clienteNombre && estado) {
