@@ -47,8 +47,6 @@ export default function ClientesPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [clientStates, setClientStates] = useState<{[key: string]: string}>({});
   const [statusFilter, setStatusFilter] = useState<string>('Todos');
-  const [clientCuits, setClientCuits] = useState<{[key: string]: string}>({});
-  const [loadingCuits, setLoadingCuits] = useState<{[key: string]: boolean}>({});
   const [airtableCuits, setAirtableCuits] = useState<{[key: string]: string}>({});
 
   const fetchData = async () => {
@@ -585,15 +583,9 @@ export default function ClientesPage() {
                     <td className="px-3 py-3 text-sm text-gray-900">
                       {clientStates[cliente.nombre] === 'En proceso' ? (
                         <div className="flex items-center gap-2">
-                          {loadingCuits[cliente.nombre] ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                          ) : airtableCuits[cliente.nombre] ? (
+                          {airtableCuits[cliente.nombre] ? (
                             <div className="text-xs text-gray-700 max-w-xs">
                               {airtableCuits[cliente.nombre]}
-                            </div>
-                          ) : clientCuits[cliente.nombre] ? (
-                            <div className="text-xs text-gray-700 max-w-xs">
-                              {clientCuits[cliente.nombre]}
                             </div>
                           ) : (
                             <a

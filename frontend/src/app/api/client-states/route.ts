@@ -74,7 +74,7 @@ export async function GET(): Promise<NextResponse<ClientStatesResponse>> {
   } catch (error) {
     console.error('Error obteniendo estados de clientes:', error);
     return NextResponse.json(
-      { success: false, clientStates: {}, error: 'Error obteniendo estados de clientes' },
+      { success: false, clientStates: {}, clientCuits: {}, error: 'Error obteniendo estados de clientes' },
       { status: 500 }
     );
   }
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!apiKey || !baseId || !tableName) {
       return NextResponse.json(
-        { success: false, clientStates: {}, error: 'Configuración de Airtable incompleta' },
+        { success: false, error: 'Configuración de Airtable incompleta' },
         { status: 500 }
       );
     }
